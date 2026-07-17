@@ -4,7 +4,7 @@
 #
 # Pin the exact upstream image before patching — overlay paths are
 # version-specific (site-packages layout can move between releases).
-ARG VLLM_VERSION=v0.19.1
+ARG VLLM_VERSION=v0.20.0
 FROM vllm/vllm-openai:${VLLM_VERSION}
 
 # Overlay patched modules on top of the installed vllm package.
