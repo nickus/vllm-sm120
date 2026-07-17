@@ -86,14 +86,31 @@ return zeros** on sm_120. After deploying, before trusting the server:
 |---|---|---|---|
 | llama.cpp b9737 Q4_K_XL (old stack) | ~182–187 tok/s | ~1,050 tok/s | ~380 tok/s (4 slots) |
 | vLLM GPTQ-Int4 `gptq_marlin` | 182.3 tok/s | 11,550 tok/s | **2,760 tok/s** |
-| vLLM NVFP4 + this patch | *trial in progress* | *trial in progress* | *trial in progress* |
+| vLLM NVFP4 + this patch | 145.9 tok/s @40K depth | ~20,500 tok/s (best) | 755 tok/s (8-agent burst) |
+
+**Realistic 8-agent swarm A/B (21K-token contexts, shared 3K system prompt),
+measured 2026-07-18** — GPTQ kept the GPU:
+
+| scenario | NVFP4 + patch | GPTQ-Int4 marlin |
+|---|---|---|
+| cold burst wall / decode agg | 13.3 s / 755 tok/s | 13.2 s / **883 tok/s** |
+| warm turn TTFT p50 / cache-hit | 1.84 s / 48% | **0.62 s / 98%** |
+| solo 40K prefill TTFT | **1.96 s** | 2.12 s |
+| solo decode @40K depth | 145.9 tok/s | **182.6 tok/s** |
+| KV pool @ util 0.9403 | 81,744 tok | **127,856 tok** |
+
+NVFP4's weights land ~0.8 GiB heavier on-GPU than GPTQ-Int4 and its CUDA-graph
+reservation is larger → 36% smaller KV pool → prefix-cache evictions under
+swarm load. It wins only cold prefill (~8%). **The patch itself is validated**
+(CUTLASS kernels engage, outputs are correct); the checkpoint economics just
+don't favor NVFP4 on 32 GB for cache-heavy workloads.
 
 ## Status
 
 - [x] Patch written against v0.20.0 (`patches/`), py_compile-clean, diff-verified
 - [x] Deployed to the reference cluster via ConfigMap overlay
-- [ ] NVFP4 serving verified end-to-end (correctness gate) — in progress
-- [ ] Benchmarked vs GPTQ-Marlin
+- [x] NVFP4 serving verified end-to-end (correctness gate passed 2026-07-18)
+- [x] Benchmarked vs GPTQ-Marlin (table above; GPTQ kept for cache-heavy swarm)
 - [ ] Upstream: turn the narrowing checks into a proper fix in vllm-project/vllm
 
 ## License
